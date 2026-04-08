@@ -35,15 +35,16 @@ function showSuggestLoading() {
 
 /**
  * Bare ticker (e.g. SPY) → full TV symbol via search. Already-qualified returns as-is.
+ * @param {AbortSignal} [signal]
  * @returns {Promise<string|null>} null if no match / error
  */
-export async function resolveBareSymbolIfNeeded(raw) {
+export async function resolveBareSymbolIfNeeded(raw, signal) {
   const q = (raw || '').trim();
   if (!q) return null;
   if (q.includes(':')) return q.toUpperCase();
   const res = await fetch(
     apiUrl(`/api/symbol-search?q=${encodeURIComponent(q)}&limit=1`),
-    { cache: 'no-store' }
+    { cache: 'no-store', signal }
   );
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.error) return null;

@@ -20,29 +20,50 @@ function status(msg) {
   if (el) el.textContent = msg;
 }
 
+let applyDrawRaf = null;
 function applyBars(bars, msg) {
   state.allBars = bars;
   state.candleSeries.setData(state.allBars);
   const barTf = document.getElementById('barTf')?.value || '15m';
   applySessionBands(state, state.allBars, barTf);
-  draw();
-  state.chart.timeScale().fitContent();
+  if (applyDrawRaf != null) cancelAnimationFrame(applyDrawRaf);
+  applyDrawRaf = requestAnimationFrame(() => {
+    applyDrawRaf = null;
+    draw();
+    state.chart.timeScale().fitContent();
+  });
   status(msg);
 }
 
+/** Serializes loads: new symbol/TF aborts in-flight fetches so stale responses cannot block the UI. */
+let loadAbort = null;
+let loadSeq = 0;
+
 async function runLoadData() {
+  loadAbort?.abort();
+  loadAbort = new AbortController();
+  const { signal } = loadAbort;
+  const seq = ++loadSeq;
+
   let symbol = (document.getElementById('symbol')?.value || config.symbol).trim();
   if (symbol && !symbol.includes(':')) {
     status('Resolving symbol…');
-    const full = await resolveBareSymbolIfNeeded(symbol);
-    if (!full) {
-      status('No match — type EXCHANGE:SYMBOL or pick from suggestions.');
+    try {
+      const full = await resolveBareSymbolIfNeeded(symbol, signal);
+      if (seq !== loadSeq) return;
+      if (!full) {
+        status('No match — type EXCHANGE:SYMBOL or pick from suggestions.');
+        return;
+      }
+      symbol = full;
+      const symIn = document.getElementById('symbol');
+      if (symIn) symIn.value = full;
+      setHeaderSymbolLabel();
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      status(`Symbol search: ${e.message}`);
       return;
     }
-    symbol = full;
-    const symIn = document.getElementById('symbol');
-    if (symIn) symIn.value = full;
-    setHeaderSymbolLabel();
   }
   const barTf = document.getElementById('barTf')?.value || config.defaultBarTf;
   const key = cacheKey(symbol, barTf);
@@ -60,12 +81,15 @@ async function runLoadData() {
       symbol,
       barTf,
       onStatus: status,
+      signal,
     });
+    if (seq !== loadSeq) return;
     applyBars(
       bars,
       `${bars.length} bars (TV)${hadCache ? ' · updated' : ''}`
     );
   } catch (e) {
+    if (e.name === 'AbortError') return;
     if (!hadCache) {
       status(
         `Error: ${e.message} Save cookies under “TradingView cookie” if you have not yet.`
@@ -84,6 +108,15 @@ function syncUiChrome() {
   applyPriceAxisVisibility(showAxis);
 }
 
+let _drawRaf = null;
+function scheduleDraw() {
+  if (_drawRaf != null) cancelAnimationFrame(_drawRaf);
+  _drawRaf = requestAnimationFrame(() => {
+    _drawRaf = null;
+    draw();
+  });
+}
+
 function wireControls() {
   document.getElementById('pivTf')?.addEventListener('change', draw);
   document.getElementById('barTf')?.addEventListener('change', () => runLoadData());
@@ -93,6 +126,25 @@ function wireControls() {
   });
   document.getElementById('showLevels')?.addEventListener('change', syncUiChrome);
   document.getElementById('showPriceAxis')?.addEventListener('change', syncUiChrome);
+  const brkMem = document.getElementById('pivotBreakMemory');
+  const persistBrkMem = () => {
+    if (brkMem) {
+      localStorage.setItem(config.pivotBreakMemoryStorageKey, String(brkMem.value));
+    }
+  };
+  const redrawBrk = () => scheduleDraw();
+  brkMem?.addEventListener('change', () => {
+    persistBrkMem();
+    redrawBrk();
+  });
+  /* Spinner / typing: input fires in Chromium; keyup+blur cover stragglers; wheel for scroll-step. */
+  brkMem?.addEventListener('input', redrawBrk);
+  brkMem?.addEventListener('keyup', redrawBrk);
+  brkMem?.addEventListener('blur', () => {
+    persistBrkMem();
+    redrawBrk();
+  });
+  brkMem?.addEventListener('wheel', redrawBrk, { passive: true });
   document.getElementById('theme-toggle')?.addEventListener('click', () => {
     toggleTheme();
     applyChartTheme();
@@ -151,6 +203,12 @@ function boot() {
   if (barSel) barSel.value = config.defaultBarTf;
   const symIn = document.getElementById('symbol');
   if (symIn) symIn.value = config.symbol;
+  const brkSaved = localStorage.getItem(config.pivotBreakMemoryStorageKey);
+  const brkEl = document.getElementById('pivotBreakMemory');
+  if (brkSaved != null && brkEl && /^[0-9]+$/.test(brkSaved)) {
+    const n = parseInt(brkSaved, 10);
+    brkEl.value = String(n < 1 ? 1 : Math.min(20, n));
+  }
 
   wireControls();
   wireTvPanel();

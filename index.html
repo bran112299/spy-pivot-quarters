@@ -9,7 +9,7 @@
 <body>
 
 <div id="header">
-  <h1>Pivot Quarters</h1><span class="badge">pinned swings · pivots UTC · axis ET</span>
+  <h1>Pivot Quarters</h1><span class="badge">pinned swings · intraday pivots: futures NY · else UTC · axis ET</span>
   <span id="price-label">—</span>
   <div class="ctrl symbol-ctrl"><label>Symbol</label>
     <div class="symbol-wrap">
@@ -26,14 +26,17 @@
     </select>
   </div>
   <div class="ctrl"><label>Pivot</label>
-    <select id="pivTf" title="Pivot bucket (H/L/C aggregation)">
+    <select id="pivTf" title="Intraday: CME-family etc. → NY session-style 8h (02/10/18 ET). Stocks & others → UTC hours (8h @ 00/08/16 UTC). Daily = ET calendar date.">
       <option value="eight_hour" selected>8h</option>
       <option value="four_hour">4h</option>
       <option value="one_hour">1h</option>
-      <option value="daily">1D</option>
+      <option value="daily">1D (ET)</option>
       <option value="weekly">Weekly</option>
       <option value="monthly">Monthly</option>
     </select>
+  </div>
+  <div class="ctrl"><label title="Swing pin starts at last pivot H/L; older pivots in the lookback only apply if they’re a higher high or lower low.">Brk mem</label>
+    <input type="number" id="pivotBreakMemory" class="input-num" min="1" max="20" step="1" value="1" title="1 = last pivot’s H/L only. 2+ = same anchor, plus older pivots only when they exceed that high or undercut that low (wider bracket). Then break → running extreme. Quarters on to see.">
   </div>
   <div class="ctrl"><label>Quarters</label><input type="checkbox" id="showQ" checked></div>
   <div class="ctrl"><label>Pivots</label><input type="checkbox" id="showP" checked></div>

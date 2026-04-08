@@ -1,7 +1,13 @@
 import { state } from '../state.js';
 import { shortTickerFromTv } from '../config.js';
 import { formatCrosshairEt } from '../timeEst.js';
-import { calcLevels, quarters, pinnedSwingsThroughTime } from '../pivot/math.js';
+import {
+  calcLevels,
+  quarters,
+  pinnedSwingsThroughTime,
+  readPivotBreakMemoryFromUi,
+  refHighLowFromPivotMemory,
+} from '../pivot/math.js';
 import { getPivotKey } from '../pivot/periods.js';
 
 export function hideFibDots() {
@@ -33,7 +39,7 @@ export function onCrosshair(param) {
   }
 
   const mode = document.getElementById('pivTf').value;
-  const key = getPivotKey(param.time, mode);
+  const key = getPivotKey(param.time, mode, sym);
   let idx = -1;
   for (let i = 0; i < state.periods.length; i++) {
     if (state.periods[i].key === key) {
@@ -49,8 +55,13 @@ export function onCrosshair(param) {
   const prev = state.periods[idx - 1];
   const curr = state.periods[idx];
   const lv = calcLevels(prev.high, prev.low, prev.close);
+  const { refH, refL } = refHighLowFromPivotMemory(
+    state.periods,
+    idx,
+    readPivotBreakMemoryFromUi()
+  );
 
-  const ps = pinnedSwingsThroughTime(prev, curr.bars, param.time);
+  const ps = pinnedSwingsThroughTime(prev, curr.bars, param.time, refH, refL);
   const { swH, swL } = ps;
 
   const q = quarters(lv.P, swH, swL);

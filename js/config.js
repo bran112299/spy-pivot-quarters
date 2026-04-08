@@ -13,6 +13,7 @@ export const config = {
   defaultBarTf: '15m',
   themeStorageKey: 'pq_theme',
   tvProxyUrlStorageKey: 'pq_tv_proxy_url',
+  pivotBreakMemoryStorageKey: 'pq_pivot_break_memory',
   chartLibSources: [
     'lightweight-charts.standalone.production.js',
     'https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js',

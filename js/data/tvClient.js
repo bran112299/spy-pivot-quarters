@@ -18,7 +18,7 @@ function toYmd(d) {
 }
 
 /**
- * @param {{ ticker: string, tf: string, from?: Date, to?: Date }} opts
+ * @param {{ ticker: string, tf: string, from?: Date, to?: Date, signal?: AbortSignal }} opts
  */
 export async function fetchTvBars(opts) {
   const from = opts.from || new Date(Date.now() - 90 * 86400000);
@@ -30,7 +30,7 @@ export async function fetchTvBars(opts) {
     to: toYmd(to),
   });
   const url = `${getTvProxyBaseUrl()}/api/bars?${q}`;
-  const r = await fetch(url, { cache: 'no-store' });
+  const r = await fetch(url, { cache: 'no-store', signal: opts.signal });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     throw new Error(data.error || `TV proxy HTTP ${r.status}`);
@@ -45,14 +45,16 @@ export async function fetchTvBars(opts) {
   }));
 }
 
-export async function tvProxyHealthy() {
+export async function tvProxyHealthy(signal) {
   try {
     const r = await fetch(`${getTvProxyBaseUrl()}/health`, {
       cache: 'no-store',
+      signal,
     });
     const j = await r.json();
     return j && j.ok === true;
   } catch (e) {
+    if (e && e.name === 'AbortError') throw e;
     return false;
   }
 }

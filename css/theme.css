@@ -102,6 +102,18 @@ body {
   color: var(--text-muted);
 }
 
+.ctrl input.input-num {
+  width: 38px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.ctrl input.input-num::-webkit-outer-spin-button,
+.ctrl input.input-num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .ctrl input[type="text"] {
   width: 112px;
   background: var(--input-bg);

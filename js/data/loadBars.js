@@ -3,10 +3,10 @@ import { cacheKey, readCache, writeCache } from './cache.js';
 import { fetchTvBars, tvProxyHealthy, getTvProxyBaseUrl } from './tvClient.js';
 
 /**
- * @param {{ symbol: string, barTf: string, onStatus: (s: string) => void }} ctx
+ * @param {{ symbol: string, barTf: string, onStatus: (s: string) => void, signal?: AbortSignal }} ctx
  */
 export async function loadBars(ctx) {
-  const { symbol, barTf, onStatus } = ctx;
+  const { symbol, barTf, onStatus, signal } = ctx;
   const meta = TV_BAR_TF_META[barTf];
   if (!meta) {
     throw new Error(`Unknown bar timeframe: ${barTf}`);
@@ -22,7 +22,13 @@ export async function loadBars(ctx) {
     onStatus('Loading…');
   }
 
-  const healthy = await tvProxyHealthy();
+  let healthy;
+  try {
+    healthy = await tvProxyHealthy(signal);
+  } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    healthy = false;
+  }
   if (!healthy) {
     if (hadCache) {
       onStatus(`${cached.bars.length} bars (cached · TV server unreachable)`);
@@ -40,11 +46,13 @@ export async function loadBars(ctx) {
       tf: barTf,
       from: new Date(Date.now() - meta.rangeDays * 86400000),
       to: new Date(),
+      signal,
     });
     if (!bars.length) throw new Error('No bars returned from TradingView');
     writeCache(key, bars);
     return { bars };
   } catch (e) {
+    if (e.name === 'AbortError') throw e;
     if (hadCache) {
       onStatus(`${cached.bars.length} bars (cached · ${e.message})`);
       return { bars: cached.bars };

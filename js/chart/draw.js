@@ -1,5 +1,12 @@
 import { state } from '../state.js';
-import { calcLevels, quarters } from '../pivot/math.js';
+import { config } from '../config.js';
+import {
+  calcLevels,
+  quarters,
+  pinnedSwingsSeries,
+  readPivotBreakMemoryFromUi,
+  refHighLowFromPivotMemory,
+} from '../pivot/math.js';
 import { groupPeriods } from '../pivot/periods.js';
 import { applySessionBands } from './sessionBands.js';
 
@@ -36,10 +43,12 @@ function line(color, width, style, title, excludeFromAutoscale) {
 }
 
 export function draw() {
+  if (!state.chart || !state.LightweightCharts) return;
   clearPool();
   if (!state.allBars.length) return;
 
   const mode = document.getElementById('pivTf').value;
+  const symbol = (document.getElementById('symbol')?.value || config.symbol).trim();
   const showQ = document.getElementById('showQ').checked;
   const showPiv = document.getElementById('showP').checked;
   const showNod = document.getElementById('showNodes').checked;
@@ -47,7 +56,7 @@ export function draw() {
   const LC = state.LightweightCharts;
   const LS = LC.LineStyle;
 
-  state.periods = groupPeriods(state.allBars, mode);
+  state.periods = groupPeriods(state.allBars, mode, symbol);
 
   const sP = showPiv ? line('#58a6ff', W_MAIN, LS.Solid, 'P') : null;
   const sR1 = showPiv ? line('rgba(248,81,73,0.9)', W_SEC, LS.Solid, 'R1') : null;
@@ -83,24 +92,22 @@ export function draw() {
   const dQd75 = [];
   const histP = [];
 
+  const pivotMemory = readPivotBreakMemoryFromUi();
+
   for (let pi = 1; pi < state.periods.length; pi++) {
     const prev = state.periods[pi - 1];
     const curr = state.periods[pi];
     const lv = calcLevels(prev.high, prev.low, prev.close);
     histP.push(lv.P);
+    const { refH, refL } = refHighLowFromPivotMemory(
+      state.periods,
+      pi,
+      pivotMemory
+    );
 
-    let relH = false;
-    let relL = false;
-    let runHi = -Infinity;
-    let runLo = Infinity;
+    const { swH, swL } = pinnedSwingsSeries(prev, curr.bars, refH, refL);
     for (let bi = 0; bi < curr.bars.length; bi++) {
       const bar = curr.bars[bi];
-      if (bar.high > runHi) runHi = bar.high;
-      if (bar.low < runLo) runLo = bar.low;
-      if (!relH && bar.high > prev.high) relH = true;
-      if (!relL && bar.low < prev.low) relL = true;
-      const swH = relH ? runHi : prev.high;
-      const swL = relL ? runLo : prev.low;
       const t = bar.time;
 
       if (showPiv) {
@@ -113,7 +120,7 @@ export function draw() {
         }
       }
       if (showQ) {
-        const q = quarters(lv.P, swH, swL);
+        const q = quarters(lv.P, swH[bi], swL[bi]);
         dQu75.push({ time: t, value: q.u75 });
         dQu50.push({ time: t, value: q.u50 });
         dQu25.push({ time: t, value: q.u25 });
@@ -143,31 +150,38 @@ export function draw() {
   }
 
   if (showNod && histP.length && state.periods.length > 1) {
+    const lastBar = state.allBars[state.allBars.length - 1];
+    const lastT = lastBar && lastBar.time;
     const firstNodeT = state.periods[1].firstTime;
-    for (let ni = 0; ni < histP.length; ni++) {
-      const pv = histP[ni];
-      const startT = state.periods[ni + 1].firstTime;
-      const seg = [];
-      for (let bi = 0; bi < state.allBars.length; bi++) {
-        const bt = state.allBars[bi].time;
-        if (bt >= startT) seg.push({ time: bt, value: pv });
+    /** Cap faint pivot-node series so huge histories do not add thousands of line overlays. */
+    const NODE_PIVOT_CAP = 200;
+    const nStart = Math.max(0, histP.length - NODE_PIVOT_CAP);
+    if (lastT != null) {
+      for (let ni = nStart; ni < histP.length; ni++) {
+        const pv = histP[ni];
+        const startT = state.periods[ni + 1].firstTime;
+        if (startT > lastT) continue;
+        const seg = [
+          { time: startT, value: pv },
+          { time: lastT, value: pv },
+        ];
+        line('rgba(100,80,180,0.3)', W_FAINT, LS.Dotted, '', true).setData(seg);
       }
-      line('rgba(100,80,180,0.3)', W_FAINT, LS.Dotted, '', true).setData(seg);
     }
     const mn = Math.min(...histP);
     const mx = Math.max(...histP);
-    let env = [];
-    for (let ei = 0; ei < state.allBars.length; ei++) {
-      const et = state.allBars[ei].time;
-      if (et >= firstNodeT) env.push({ time: et, value: mx });
+    if (lastT != null && firstNodeT <= lastT) {
+      const envHi = [
+        { time: firstNodeT, value: mx },
+        { time: lastT, value: mx },
+      ];
+      const envLo = [
+        { time: firstNodeT, value: mn },
+        { time: lastT, value: mn },
+      ];
+      line('rgba(120,100,200,0.12)', W_FAINT, LS.Solid, '', true).setData(envHi);
+      line('rgba(120,100,200,0.12)', W_FAINT, LS.Solid, '', true).setData(envLo);
     }
-    line('rgba(120,100,200,0.12)', W_FAINT, LS.Solid, '', true).setData(env);
-    env = [];
-    for (let ej = 0; ej < state.allBars.length; ej++) {
-      const et2 = state.allBars[ej].time;
-      if (et2 >= firstNodeT) env.push({ time: et2, value: mn });
-    }
-    line('rgba(120,100,200,0.12)', W_FAINT, LS.Solid, '', true).setData(env);
   }
 
   const barTf = document.getElementById('barTf')?.value || '15m';
