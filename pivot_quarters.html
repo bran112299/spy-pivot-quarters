@@ -37,7 +37,7 @@ input[type=checkbox] { accent-color:#58a6ff; cursor:pointer; }
 <body>
 
 <div id="header">
-  <h1>Pivot Quarters</h1>
+  <h1>Pivot Quarters</h1><span style="font-size:9px;color:#6e7681;font-weight:400;margin-left:6px">pinned swings</span>
   <span id="price-label">SPY —</span>
   <div class="ctrl"><label>Pivot</label>
     <select id="pivTf">
@@ -55,8 +55,8 @@ input[type=checkbox] { accent-color:#58a6ff; cursor:pointer; }
 <div id="chart-wrap">
   <div id="chart"></div>
   <div id="fib-dots" aria-hidden="true">
-    <div class="fib-dot hi" id="fib-dot-hi" title="Swing high (Q-up range)"></div>
-    <div class="fib-dot lo" id="fib-dot-lo" title="Swing low (Q-down range)"></div>
+    <div class="fib-dot hi" id="fib-dot-hi" title="SwH: prior H until broken, then period high"></div>
+    <div class="fib-dot lo" id="fib-dot-lo" title="SwL: prior L until broken, then period low"></div>
   </div>
   <div id="info">
     <div class="ir"><span class="il">P</span>    <span class="iv p"  id="iP">—</span></div>
@@ -82,8 +82,8 @@ input[type=checkbox] { accent-color:#58a6ff; cursor:pointer; }
   <div class="leg"><div class="ld" style="background:rgba(190,150,255,0.85)"></div>Q up</div>
   <div class="leg"><div class="ld" style="background:rgba(100,200,255,0.85)"></div>Q down</div>
   <div class="leg"><div class="ld" style="background:rgba(100,80,180,0.4)"></div>Prior P</div>
-  <div class="leg"><div class="ld" style="background:#f85149; border-radius:50%; width:8px; height:8px"></div>SwH @ crosshair</div>
-  <div class="leg"><div class="ld" style="background:#3fb950; border-radius:50%; width:8px; height:8px"></div>SwL @ crosshair</div>
+  <div class="leg"><div class="ld" style="background:#f85149; border-radius:50%; width:8px; height:8px"></div>SwH (prior H → break)</div>
+  <div class="leg"><div class="ld" style="background:#3fb950; border-radius:50%; width:8px; height:8px"></div>SwL (prior L → break)</div>
 </div>
 
 <script>
@@ -377,6 +377,29 @@ input[type=checkbox] { accent-color:#58a6ff; cursor:pointer; }
     };
   }
 
+  /**
+   * Quarter-band swings: pin swH to prior period high and swL to prior period low until each side
+   * breaks (trade above prior high / below prior low). Until then that side stays pinned; after
+   * break it follows the running high or low of the current period. Both sides update independently.
+   */
+  function pinnedSwingsThroughTime(prevPeriod, currBars, timeCutoff) {
+    var releasedHigh = false;
+    var releasedLow  = false;
+    var runningHi = -Infinity;
+    var runningLo = Infinity;
+    for (var i = 0; i < currBars.length; i++) {
+      var b = currBars[i];
+      if (timeCutoff != null && b.time > timeCutoff) break;
+      if (b.high > runningHi) runningHi = b.high;
+      if (b.low < runningLo) runningLo = b.low;
+      if (!releasedHigh && b.high > prevPeriod.high) releasedHigh = true;
+      if (!releasedLow && b.low < prevPeriod.low) releasedLow = true;
+    }
+    var swH = releasedHigh ? runningHi : prevPeriod.high;
+    var swL = releasedLow ? runningLo : prevPeriod.low;
+    return { swH: swH, swL: swL };
+  }
+
   // ── Series ────────────────────────────────────────────────────────
 
   function clearPool() {
@@ -445,13 +468,16 @@ input[type=checkbox] { accent-color:#58a6ff; cursor:pointer; }
       var lv   = calcLevels(prev.high, prev.low, prev.close);
       histP.push(lv.P);
 
-      var swH = curr.bars[0].high;
-      var swL = curr.bars[0].low;
-
+      var relH = false, relL = false;
+      var runHi = -Infinity, runLo = Infinity;
       for (var bi = 0; bi < curr.bars.length; bi++) {
         var bar = curr.bars[bi];
-        if (bar.high > swH) swH = bar.high;
-        if (bar.low  < swL) swL = bar.low;
+        if (bar.high > runHi) runHi = bar.high;
+        if (bar.low < runLo) runLo = bar.low;
+        if (!relH && bar.high > prev.high) relH = true;
+        if (!relL && bar.low < prev.low) relL = true;
+        var swH = relH ? runHi : prev.high;
+        var swL = relL ? runLo : prev.low;
         var t = bar.time;
 
         if (showPiv) {
@@ -543,14 +569,9 @@ input[type=checkbox] { accent-color:#58a6ff; cursor:pointer; }
     var curr = periods[idx];
     var lv   = calcLevels(prev.high, prev.low, prev.close);
 
-    var swH = curr.bars[0].high;
-    var swL = curr.bars[0].low;
-    for (var bi = 0; bi < curr.bars.length; bi++) {
-      var b = curr.bars[bi];
-      if (b.time > param.time) break;
-      if (b.high > swH) swH = b.high;
-      if (b.low  < swL) swL = b.low;
-    }
+    var ps = pinnedSwingsThroughTime(prev, curr.bars, param.time);
+    var swH = ps.swH;
+    var swL = ps.swL;
 
     var q = quarters(lv.P, swH, swL);
     var f = function(v) { return v.toFixed(2); };
