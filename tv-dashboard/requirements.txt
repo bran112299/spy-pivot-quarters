@@ -1,0 +1,7 @@
+flask
+websocket-client
+backoff
+requests
+python-dateutil
+dataclasses-json
+ephem

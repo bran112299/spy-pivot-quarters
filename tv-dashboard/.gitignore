@@ -1,0 +1,6 @@
+cookies.pkl
+.idea/
+__pycache__/
+*.pyc
+venv/
+cache/

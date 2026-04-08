@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pivot Quarters</title>
+  <link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+
+<div id="header">
+  <h1>Pivot Quarters</h1><span class="badge">pinned swings · pivots UTC · axis ET</span>
+  <span id="price-label">—</span>
+  <div class="ctrl symbol-ctrl"><label>Symbol</label>
+    <div class="symbol-wrap">
+      <input type="text" id="symbol" value="AMEX:SPY" spellcheck="false" autocomplete="off" title="Search or EXCHANGE:SYMBOL (e.g. AMEX:SPY)">
+      <div id="ticker-suggest" class="ticker-suggest" role="listbox" aria-label="Symbol suggestions"></div>
+    </div>
+  </div>
+  <div class="ctrl"><label>Bars</label>
+    <select id="barTf" title="Candle resolution (TradingView)">
+      <option value="3m">3m</option>
+      <option value="15m" selected>15m</option>
+      <option value="1h">1h</option>
+      <option value="1d">1D</option>
+    </select>
+  </div>
+  <div class="ctrl"><label>Pivot</label>
+    <select id="pivTf" title="Pivot bucket (H/L/C aggregation)">
+      <option value="eight_hour" selected>8h</option>
+      <option value="four_hour">4h</option>
+      <option value="one_hour">1h</option>
+      <option value="daily">1D</option>
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+    </select>
+  </div>
+  <div class="ctrl"><label>Quarters</label><input type="checkbox" id="showQ" checked></div>
+  <div class="ctrl"><label>Pivots</label><input type="checkbox" id="showP" checked></div>
+  <div class="ctrl"><label>Nodes</label><input type="checkbox" id="showNodes" checked></div>
+  <div class="ctrl"><label>R2/S2</label><input type="checkbox" id="showR2" checked></div>
+  <div class="ctrl"><label>Sessions</label><input type="checkbox" id="showSessionBands" checked title="Premarket / after-hours tint (intraday)"></div>
+  <div class="ctrl"><label>Level panel</label><input type="checkbox" id="showLevels" checked title="Top-left P/R pivot readout"></div>
+  <div class="ctrl"><label>Price axis</label><input type="checkbox" id="showPriceAxis" checked title="Right-hand price scale"></div>
+  <button type="button" id="theme-toggle" title="Toggle theme">Theme</button>
+  <span id="status">Initializing…</span>
+</div>
+
+<details id="tv-panel" class="tv-panel">
+  <summary>TradingView cookie (local proxy)</summary>
+  <div class="tv-panel-inner">
+    <p class="tv-hint">Run <code>python3 server/app.py</code> (or <code>server/pivot_tv_proxy.py</code>) and open <strong>http://127.0.0.1:8787/</strong>. Paste your browser cookies (must include <code>sessionid=</code>), then save. Leave proxy URL empty to use the current site origin.</p>
+    <div class="tv-row">
+      <label class="tv-label">Proxy URL</label>
+      <input type="text" id="tvProxyUrl" class="tv-input-wide" spellcheck="false" autocomplete="off" placeholder="(empty = this site, e.g. :8787)">
+    </div>
+    <div class="tv-row">
+      <label class="tv-label">Cookies</label>
+      <textarea id="tvCookie" class="tv-textarea" rows="2" spellcheck="false" autocomplete="off" placeholder="sessionid=…; device_t=…"></textarea>
+    </div>
+    <div class="tv-row tv-actions">
+      <button type="button" id="tvCookieSave">Save cookie to proxy</button>
+      <span id="tvCookieStatus" class="tv-status" aria-live="polite"></span>
+    </div>
+  </div>
+</details>
+
+<div id="chart-wrap">
+  <div id="chart"></div>
+  <div id="fib-dots" aria-hidden="true">
+    <div class="fib-dot hi" id="fib-dot-hi" title="SwH: prior H until broken, then period high"></div>
+    <div class="fib-dot lo" id="fib-dot-lo" title="SwL: prior L until broken, then period low"></div>
+  </div>
+  <div id="info">
+    <div class="ir"><span class="il">P</span>    <span class="iv p"  id="iP">—</span></div>
+    <div class="ir"><span class="il">R1</span>   <span class="iv r"  id="iR1">—</span></div>
+    <div class="ir"><span class="il">S1</span>   <span class="iv s"  id="iS1">—</span></div>
+    <div class="ir"><span class="il">SwH</span>  <span class="iv r"  id="iSH">—</span></div>
+    <div class="ir"><span class="il">SwL</span>  <span class="iv s"  id="iSL">—</span></div>
+    <div class="ir"><span class="il">Q75u</span> <span class="iv qu" id="iQ75u">—</span></div>
+    <div class="ir"><span class="il">Q50u</span> <span class="iv qu" id="iQ50u">—</span></div>
+    <div class="ir"><span class="il">Q25u</span> <span class="iv qu" id="iQ25u">—</span></div>
+    <div class="ir"><span class="il">Q25d</span> <span class="iv qd" id="iQ25d">—</span></div>
+    <div class="ir"><span class="il">Q50d</span> <span class="iv qd" id="iQ50d">—</span></div>
+    <div class="ir"><span class="il">Q75d</span> <span class="iv qd" id="iQ75d">—</span></div>
+  </div>
+</div>
+
+<div id="legend">
+  <div class="leg"><div class="ld" style="background:var(--accent)"></div>P</div>
+  <div class="leg"><div class="ld" style="background:var(--candle-down)"></div>R1</div>
+  <div class="leg"><div class="ld" style="background:var(--candle-up)"></div>S1</div>
+  <div class="leg"><div class="ld" style="background:rgba(248,81,73,0.4)"></div>R2</div>
+  <div class="leg"><div class="ld" style="background:rgba(63,185,80,0.4)"></div>S2</div>
+  <div class="leg"><div class="ld" style="background:rgba(190,150,255,0.85)"></div>Q up</div>
+  <div class="leg"><div class="ld" style="background:rgba(100,200,255,0.85)"></div>Q down</div>
+  <div class="leg"><div class="ld" style="background:rgba(100,80,180,0.4)"></div>Prior P</div>
+  <div class="leg"><div class="ld" style="background:var(--candle-down); border-radius:50%; width:8px; height:8px"></div>SwH</div>
+  <div class="leg"><div class="ld" style="background:var(--candle-up); border-radius:50%; width:8px; height:8px"></div>SwL</div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

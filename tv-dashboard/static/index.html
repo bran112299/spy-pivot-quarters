@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chart Viewer</title>
+<link rel="stylesheet" href="/static/css/main.css"/>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="ticker-wrap">
+    <input id="ticker-input" type="text" placeholder="TSLA or NASDAQ:TSLA" value="AMEX:SPY" spellcheck="false" autocomplete="off"/>
+    <div id="ticker-suggest" class="ticker-suggest" aria-label="Symbol suggestions"></div>
+  </div>
+  <div class="tf-group">
+    <button class="tf-btn" data-tf="1m">1m</button>
+    <button class="tf-btn" data-tf="3m">3m</button>
+    <button class="tf-btn" data-tf="15m">15m</button>
+    <button class="tf-btn" data-tf="1h">1h</button>
+    <button class="tf-btn" data-tf="4h">4h</button>
+    <button class="tf-btn active" data-tf="8h">8h</button>
+    <button class="tf-btn" data-tf="1d">1D</button>
+    <button class="tf-btn" data-tf="1w">1W</button>
+    <button class="tf-btn" data-tf="1M">1M</button>
+  </div>
+  <span class="date-sep">from</span>
+  <input type="date" id="date-from" value="2022-01-01"/>
+  <span class="date-sep">to</span>
+  <input type="date" id="date-to"/>
+  <button id="fetch-btn" onclick="doFetch()">Fetch</button>
+  <div id="live-badge"><div class="live-dot"></div><span id="live-label">LIVE</span></div>
+  <span id="status-chip">—</span>
+  <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+  <div class="indicator-group">
+    <div class="planet-wrap" id="planet-wrap">
+      <button id="planet-btn" class="ind-btn" onclick="togglePlanetPanel()" title="Planets / Aspects">Planets</button>
+      <div class="planet-panel" id="planet-panel">
+        <div class="pp-head">
+          <div class="pp-title">Planets</div>
+          <button class="ind-btn ind-adj" onclick="togglePlanetPanel()" title="Close">✕</button>
+        </div>
+        <div class="pp-row">
+          <span class="pp-label">Orb</span>
+          <input id="orb-input" type="number" min="0" max="10" step="0.1" value="1.0"/>
+          <span class="pp-suffix">°</span>
+        </div>
+        <div class="pp-table" id="planet-table">
+          <label class="pp-item"><input type="checkbox" data-planet="Sun" checked><span class="pp-sym">☉</span> Sun</label>
+          <label class="pp-item"><input type="checkbox" data-planet="Moon" checked><span class="pp-sym">☽</span> Moon</label>
+          <label class="pp-item"><input type="checkbox" data-planet="Mercury" checked><span class="pp-sym">☿</span> Mercury</label>
+          <label class="pp-item"><input type="checkbox" data-planet="Venus" checked><span class="pp-sym">♀</span> Venus</label>
+          <label class="pp-item"><input type="checkbox" data-planet="Mars" checked><span class="pp-sym">♂</span> Mars</label>
+          <label class="pp-item"><input type="checkbox" data-planet="Jupiter" checked><span class="pp-sym">♃</span> Jupiter</label>
+          <label class="pp-item"><input type="checkbox" data-planet="Saturn" checked><span class="pp-sym">♄</span> Saturn</label>
+        </div>
+      </div>
+    </div>
+    <div class="measure-toolbar">
+      <button id="measure-toggle" class="ind-btn" onclick="toggleMeasure()" title="Measure time span on chart (M)">Measure</button>
+      <button type="button" id="measure-clear-all" class="ind-btn ind-adj" onclick="clearAllMeasures()" title="Remove all measurements from chart">Clear</button>
+      <label class="pp-measure-helio" title="Heliocentric longitudes (tooltip + measure). Hotkey: H"><input type="checkbox" id="measure-helio"> Helio Δ</label>
+      <span id="measure-hint" class="measure-hint" aria-live="polite"></span>
+    </div>
+    <button id="session-toggle" class="ind-btn active" onclick="toggleSessionBands()">Sessions</button>
+    <button id="grid-toggle" class="ind-btn active" onclick="toggleGrid()">Grid</button>
+  </div>
+</div>
+
+<div id="chart-wrap">
+  <div id="chart"></div>
+  <div id="candle-timer"></div>
+  <div id="tooltip">
+    <div class="t-ohlc">
+      <div class="t-date" id="t-date"></div>
+      <div class="t-row"><span class="t-lbl">O</span><span class="t-o" id="t-o"></span></div>
+      <div class="t-row"><span class="t-lbl">H</span><span class="t-h" id="t-h"></span></div>
+      <div class="t-row"><span class="t-lbl">L</span><span class="t-l" id="t-l"></span></div>
+      <div class="t-row"><span class="t-lbl">C</span><span class="t-c" id="t-c"></span></div>
+    </div>
+  </div>
+  <div id="overlay">
+    <div class="spinner"></div>
+    <span id="overlay-msg">Loading…</span>
+  </div>
+</div>
+
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
